@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Brain Freedom</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css">
+<style>
+:root{
+ --ink:#08090c; --panel:#0e1014; --panel2:#14171c; --line:#23272f; --edge:#2e2a20;
+ --paper:#e9e3d4; --dim:#8a8578; --gold:#e0a340; --gold2:#f2c169; --red:#c9453c; --green:#7fb069;
+ --mono:'SF Mono',ui-monospace,Menlo,Consolas,monospace; --ui:var(--mono);
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:var(--ink);color:var(--paper);font-family:var(--mono);
+ font-size:13px;overflow:hidden;-webkit-font-smoothing:antialiased}
+button{font-family:var(--mono);cursor:pointer;color:var(--paper)}
+.pill,nav button,.btn{background:var(--panel2);border:1px solid var(--line);border-radius:999px;
+ padding:9px 18px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;transition:.14s;color:var(--paper)}
+.pill:hover,nav button:hover,.btn:hover{border-color:var(--edge);color:var(--gold2)}
+.pill.on,nav button.a,.btn.g{background:var(--gold);border-color:var(--gold);color:#0a0a0a;font-weight:600}
+.pill.sm{padding:6px 12px;font-size:10px}
+#app{display:flex;height:100vh;width:100vw}
+#left{width:46%;min-width:340px;display:flex;flex-direction:column;border-right:1px solid var(--line)}
+#drag{width:5px;cursor:col-resize;background:var(--line);flex:0 0 5px}
+#drag:hover{background:var(--gold)}
+header{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line)}
+.logo{color:var(--gold);font-size:12px;letter-spacing:.24em;text-transform:uppercase}
+.sub,.k,label{color:var(--dim);font-size:10px;letter-spacing:.16em;text-transform:uppercase}
+.spacer{flex:1}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--red)}.dot.on{background:var(--green)}
+#gear{width:36px;height:36px;border-radius:50%;background:var(--gold);border:0;color:#0a0a0a;font-size:17px;
+ display:flex;align-items:center;justify-content:center;box-shadow:0 0 18px rgba(224,163,64,.3)}
+nav{display:flex;gap:8px;padding:12px 14px 0;border:0}
+main{flex:1;overflow-y:auto;padding:14px}
+section{display:none}section.a{display:block}
+.msg{margin:0 0 12px;line-height:1.65;font-size:13.5px}
+.msg .who{color:var(--gold);font-size:9px;letter-spacing:.2em;text-transform:uppercase;display:block;margin-bottom:3px}
+.msg.sys{color:var(--dim)}.msg.sys b{color:var(--gold2);font-weight:400}
+footer{border-top:1px solid var(--line);padding:12px 14px;background:transparent}
+#box{width:100%;background:var(--panel);border:1px solid var(--edge);border-radius:16px;color:var(--paper);
+ padding:14px;font-size:14px;font-family:var(--mono);resize:none;min-height:88px;line-height:1.55}
+#box:focus{outline:0;border-color:var(--gold)}
+.tools{display:flex;align-items:center;gap:8px;margin-top:10px;position:static;padding:0}
+.icon{width:54px;height:54px;border-radius:50%;background:var(--gold);border:0;color:#0a0a0a;
+ font-size:12px;letter-spacing:.08em;font-weight:700;display:flex;align-items:center;justify-content:center;
+ box-shadow:0 0 22px rgba(224,163,64,.25)}
+.icon.rec{background:var(--red);color:#fff}
+.icon.small{width:auto;height:auto;border-radius:999px;background:var(--panel2);color:var(--paper);
+ border:1px solid var(--line);padding:9px 16px;font-size:10px;box-shadow:none;letter-spacing:.14em}
+.send{margin-left:0;background:var(--gold);color:#0a0a0a;border:0;border-radius:999px;padding:10px 20px;
+ font-weight:700;font-size:11px;letter-spacing:.16em;text-transform:uppercase}
+.meter{color:var(--dim);font-size:10px;letter-spacing:.06em;min-width:186px;text-align:right}
+.wave{height:26px;flex:1;display:flex;align-items:center;gap:2px;overflow:hidden;background:var(--panel);
+ border:1px solid var(--edge);border-radius:10px;padding:0 8px}
+.wave i{width:3px;background:var(--gold);height:2px;border-radius:2px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.card{border:1px solid var(--edge);border-radius:14px;overflow:hidden;background:var(--panel)}
+.card img{width:100%;display:block}
+.card .cap{padding:8px 10px;display:flex;gap:8px;align-items:center;font-size:10px;color:var(--dim)}
+.card .cap b{color:var(--paper);font-weight:400;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.drop{border:1px dashed var(--edge);border-radius:16px;padding:24px;text-align:center;color:var(--dim);
+ font-size:11px;letter-spacing:.06em;margin-bottom:12px}
+.drop.hot{border-color:var(--gold);color:var(--gold)}
+input[type=text],input[type=password]{width:100%;background:var(--ink);border:1px solid var(--edge);
+ border-radius:12px;color:var(--paper);padding:11px 13px;font-family:var(--mono);font-size:12px;margin:5px 0 12px}
+input:focus{outline:0;border-color:var(--gold)}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.bar{height:5px;background:var(--panel2);border-radius:3px;overflow:hidden;margin:5px 0 12px}
+.bar i{display:block;height:100%;background:var(--gold)}
+.v{font-size:26px;color:var(--gold2);font-family:var(--mono)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+.two>div{border:1px solid var(--edge);border-radius:16px;padding:14px;background:var(--panel)}
+#modal{position:fixed;inset:0;background:rgba(4,5,7,.88);display:none;align-items:center;justify-content:center;
+ z-index:80;padding:24px}
+#modal.on{display:flex}
+.sheet{width:min(780px,96vw);max-height:88vh;overflow-y:auto;background:var(--panel);border:1px solid var(--edge);
+ border-radius:22px;padding:22px}
+.sheet h2{margin:22px 0 6px;font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--gold)}
+.sheet h2:first-child{margin-top:0}
+.keyrow{display:flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid var(--line);border-radius:12px;
+ margin-bottom:7px;background:var(--ink)}
+.keyrow .m{flex:1;font-size:11px;color:var(--paper);letter-spacing:.04em}
+.st{font-size:9px;letter-spacing:.14em;text-transform:uppercase;padding:3px 9px;border-radius:999px;
+ border:1px solid var(--line);color:var(--dim)}
+.st.ok{color:var(--green);border-color:#2c3a2c}.st.failed{color:var(--red);border-color:#3a2626}
+.prov{margin:16px 0 8px;display:flex;align-items:center;gap:10px}
+.prov b{color:var(--gold2);font-weight:400;font-size:11px;letter-spacing:.18em;text-transform:uppercase}
+.note{color:var(--dim);font-size:11px;line-height:1.8;letter-spacing:.03em;text-transform:none}
+#reader{position:fixed;inset:auto 0 0 0;height:46%;background:#0a0b0e;border-top:1px solid var(--gold);
+ display:none;flex-direction:column;z-index:60}
+#reader.on{display:flex}
+#rtxt{flex:1;overflow-y:auto;padding:26px 30px;font-size:19px;line-height:1.9;color:#efe9dc;font-family:var(--mono)}
+#rtxt span.on{background:var(--gold);color:#0a0a0a;border-radius:3px}
+.rbar{display:flex;gap:8px;padding:10px 14px;border-top:1px solid var(--line);align-items:center}
+#right{flex:1;display:flex;flex-direction:column;background:#06070a;min-width:0}
+#rhead{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line)}
+#term{flex:1;padding:8px 10px;min-height:0}
+
+:root{--fsL:13.5px; --fsT:13px}
+.msg,.msg .who{font-size:inherit}
+#chat,#gal,#use{font-size:var(--fsL)}
+.msg{font-size:var(--fsL)}
+#box{font-size:calc(var(--fsL) + 0.5px)}
+#mic{background:#2a0f0d;border:2px solid var(--red);color:#ff8f86;box-shadow:0 0 20px rgba(201,69,60,.22)}
+#mic.rec{background:var(--red);border-color:#ff6b60;color:#fff}
+#read{background:#0c1a2a;border:2px solid #3d7fbf;color:#8fc4ff;box-shadow:0 0 18px rgba(61,127,191,.18);
+ border-radius:999px;padding:10px 18px;font-size:10px;letter-spacing:.16em;text-transform:uppercase;width:auto;height:auto}
+.fs{display:flex;align-items:center;gap:6px}
+.fs button{width:30px;height:30px;border-radius:50%;background:var(--panel2);border:1px solid var(--line);
+ color:var(--paper);font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center}
+.fs button:hover{border-color:var(--gold);color:var(--gold)}
+.fs span{color:var(--dim);font-size:9px;letter-spacing:.14em;min-width:30px;text-align:center}
+#right{padding:0}
+#term{padding:14px 22px 14px 18px}
+.xterm-viewport{scrollbar-width:thin}
+#rhead{padding:10px 22px 10px 16px}
+</style></head>
+<body>
+<div id="app">
+ <div id="left">
+  <header>
+    <span class="logo">Brain Freedom</span>
+    <span class="sub" id="ver"></span>
+    <span class="spacer"></span>
+    <span class="dot" id="live"></span>
+    <span class="sub" id="repo"></span>
+    <button id="gear" title="Settings and keys">&#9881;</button>
+  </header>
+  <nav>
+    <button class="a" data-t="chat">Command</button>
+    <button data-t="gal">Frames</button>
+    <button data-t="use">Usage</button>
+    
+  </nav>
+  <main>
+    <section id="chat" class="a"></section>
+
+    <section id="gal">
+      <div class="drop" id="drop">Drop a render here, or click to choose.<br>
+        <span class="k">It is named, optimised, committed and pushed, and you get the link back.</span></div>
+      <label>Name</label><input type="text" id="iname" placeholder="HERO_V3_1">
+      <label>Folder in repo</label><input type="text" id="ifolder" value="assets/HERO_V3">
+      <div class="grid" id="grid"></div>
+    </section>
+
+    <section id="use">
+      <div class="two">
+        <div><div class="k">Today, tokens</div><div class="v" id="uToday">0</div></div>
+        <div><div class="k">Daily average, 7 days</div><div class="v" id="uAvg">0</div></div>
+      </div>
+      <div class="k">Last 14 days</div>
+      <div id="uDays"></div>
+      <p class="k" id="uNote" style="margin-top:16px;line-height:1.6"></p>
+    </section>
+
+    
+  </main>
+
+  <footer>
+    <textarea id="box" placeholder="Speak or type. This goes to the agent on the right, typed one character at a time."></textarea>
+    <div class="tools">
+      <button class="icon" id="mic" title="Record">REC</button>
+      <button class="icon small" id="read" title="Read aloud">Read</button>
+      <div class="fs" title="Text size, left side">
+      <button id="lminus">&minus;</button><span id="lsize">13</span><button id="lplus">+</button>
+    </div>
+    <div class="wave" id="wave"></div>
+      <span class="meter" id="meter">ready</span>
+      <button class="send" id="send">Send</button>
+    </div>
+  </footer>
+ </div>
+
+ <div id="drag"></div>
+
+ <div id="right">
+   <div id="rhead">
+     <span class="logo" style="color:var(--cyan)">Engine</span>
+     <span class="sub">claude code, live pty</span>
+     <span class="spacer"></span>
+     <div class="fs" title="Text size, terminal">
+       <button id="tminus">&minus;</button><span id="tsize">13</span><button id="tplus">+</button>
+     </div>
+     <button class="btn" id="esc">esc</button>
+     <button class="btn" id="ctrlc">ctrl c</button>
+     <button class="btn" id="clr">clear</button>
+   </div>
+   <div id="term"></div>
+ </div>
+</div>
+
+
+<div id="modal"><div class="sheet">
+  <h2>Keys</h2>
+  <p class="note">Point at any file. Notes, exports, a mess, it does not matter. Every key inside is found,
+  sorted by provider and queued. Transcription walks the queue until one answers, so a dead key costs you a
+  second rather than a session. Shape is only used to sort, never to reject, because providers change their
+  formats without telling anybody.</p>
+  <div class="row" style="margin:12px 0 10px">
+    <button class="pill on" id="kimport">Import from file</button>
+    <button class="pill" id="kpaste">Paste text</button>
+    <button class="pill" id="krefresh">Refresh</button>
+  </div>
+  <div id="klist"></div>
+  <h2>Browser</h2>
+  <p class="note">Brain Freedom opens itself in the browser you pick here, ignoring whatever macOS thinks the
+  default is. Firefox is chosen first when it is present, because its recorder produces Opus, which is the
+  right format for speech.</p>
+  <div class="row" id="brow" style="margin:10px 0 4px"></div>
+
+  <h2>Repository</h2>
+  <label>Path on this Mac</label><input type="text" id="cRepo">
+  <label>Slug</label><input type="text" id="cSlug">
+  <label>Branch</label><input type="text" id="cBr">
+  <label>Agent command</label><input type="text" id="cCmd">
+  <div class="row" style="margin-top:4px">
+    <button class="pill on" id="save">Save</button>
+    <button class="pill" id="restart">Restart agent</button>
+    <button class="pill" id="clone">Create or clone repository</button>
+    <button class="pill" id="pushnow">Push now</button>
+    <span class="spacer"></span><button class="pill" id="close">Close</button>
+  </div>
+</div></div>
+
+<div id="reader">
+  <div id="rtxt"></div>
+  <div class="rbar">
+    <button class="btn" id="rplay">Pause</button>
+    <button class="btn" id="rslow">Slower</button>
+    <button class="btn" id="rfast">Faster</button>
+    <span class="spacer"></span><span class="k" id="rstat"></span>
+    <button class="btn" id="rclose">Close</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.min.js"></script>
+<script>
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+let ST={};
+
+/* ---------------- terminal ---------------- */
+const term=new Terminal({
+  fontFamily:"'SF Mono',Menlo,monospace", fontSize:13, lineHeight:1.25, cursorBlink:true,
+  allowProposedApi:true, scrollback:8000, macOptionIsMeta:true,
+  theme:{background:'#0a0c11',foreground:'#e7e2d6',cursor:'#e0a340',selectionBackground:'#243044',
+    black:'#0a0c11',red:'#d2453c',green:'#7fb069',yellow:'#e0a340',blue:'#4dd6e8',magenta:'#9b8cf5',
+    cyan:'#4dd6e8',white:'#e7e2d6',brightBlack:'#5a5c63'}
+});
+const fit=new FitAddon.FitAddon(); term.loadAddon(fit);
+term.open($('#term')); fit.fit();
+let ws;
+function connect(){
+  ws=new WebSocket((location.protocol==='https:'?'wss':'ws')+'://'+location.host+'/ws/term');
+  ws.onopen=()=>{ $('#live').classList.add('on'); sendSize(); };
+  ws.onmessage=e=>term.write(e.data);
+  ws.onclose=()=>{ $('#live').classList.remove('on'); setTimeout(connect,1500); };
+}
+function sendSize(){ if(ws&&ws.readyState===1) ws.send(JSON.stringify({t:'resize',cols:term.cols,rows:term.rows})); }
+term.onData(d=>{ if(ws&&ws.readyState===1) ws.send(JSON.stringify({t:'in',d})); });
+new ResizeObserver(()=>{ fit.fit(); sendSize(); }).observe($('#term'));
+connect();
+$('#esc').onclick=()=>fetch('/api/key',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({d:'\x1b'})});
+$('#ctrlc').onclick=()=>fetch('/api/key',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({d:'\x03'})});
+$('#clr').onclick=()=>term.clear();
+
+/* ---------------- tabs ---------------- */
+$$('nav button').forEach(b=>b.onclick=()=>{
+  $$('nav button').forEach(x=>x.classList.remove('a')); b.classList.add('a');
+  $$('main section').forEach(s=>s.classList.remove('a'));
+  $('#'+b.dataset.t).classList.add('a');
+  if(b.dataset.t==='gal') loadGallery();
+  if(b.dataset.t==='use') loadUsage();
+});
+
+/* ---------------- log ---------------- */
+function log(who,text,cls){
+  const d=document.createElement('div'); d.className='msg '+(cls||'');
+  d.innerHTML='<span class="who">'+who+'</span>'+text;
+  $('#chat').appendChild(d); $('#chat').parentElement.scrollTop=1e9; return d;
+}
+
+/* ---------------- send ---------------- */
+async function send(){
+  const t=$('#box').value.trim(); if(!t) return;
+  log('you',t.replace(/</g,'&lt;'),'me'); $('#box').value='';
+  const r=await(await fetch('/api/say',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({text:t,cps:110})})).json();
+  log('engine','typing '+r.chars+' characters into the agent','sys');
+}
+$('#send').onclick=send;
+$('#box').addEventListener('keydown',e=>{ if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)) send(); });
+
+/* ---------------- voice ---------------- */
+let rec,chunks=[],t0,tick,analyser,actx;
+const bars=[...Array(28)].map(()=>{const i=document.createElement('i');$('#wave').appendChild(i);return i;});
+$('#mic').onclick=async()=>{
+  if(rec&&rec.state==='recording'){ rec.stop(); return; }
+  let stream;
+  try{ stream=await navigator.mediaDevices.getUserMedia({audio:{channelCount:1,noiseSuppression:true,echoCancellation:true}}); }
+  catch(e){ log('mic','microphone refused. Firefox asks once per site, allow it in the address bar.','sys'); return; }
+  actx=new AudioContext(); const src=actx.createMediaStreamSource(stream);
+  analyser=actx.createAnalyser(); analyser.fftSize=64; src.connect(analyser);
+  const mime=MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')?'audio/ogg;codecs=opus':'audio/webm;codecs=opus';
+  rec=new MediaRecorder(stream,{mimeType:mime,audioBitsPerSecond:24000});
+  chunks=[]; t0=Date.now();
+  rec.ondataavailable=e=>{ if(e.data.size) chunks.push(e.data); };
+  rec.onstop=async()=>{
+    clearInterval(tick); stream.getTracks().forEach(t=>t.stop()); try{actx.close()}catch(e){}
+    $('#mic').classList.remove('rec'); $('#mic').textContent='REC'; bars.forEach(b=>b.style.height='2px');
+    const blob=new Blob(chunks,{type:mime});
+    const kb=(blob.size/1024).toFixed(0), secs=((Date.now()-t0)/1000).toFixed(0);
+    $('#meter').textContent='uploading '+kb+' KB · '+secs+'s';
+    const fd=new FormData(); fd.append('audio',blob,'v.'+(mime.includes('ogg')?'ogg':'webm'));
+    const up=Date.now();
+    try{
+      const r=await(await fetch('/api/transcribe',{method:'POST',body:fd})).json();
+      if(!r.ok){ $('#meter').textContent='failed';
+        log('voice',r.error+((r.tried&&r.tried.length)?'<br>'+r.tried.join('<br>'):''),'sys'); return; }
+      const rate=(blob.size/1024/((Date.now()-up)/1000)).toFixed(0);
+      $('#meter').textContent=kb+' KB · '+rate+' KB/s · '+r.seconds+'s · key '+r.key_index;
+      if(r.tried&&r.tried.length) log('voice','key 1 rejected, fell through to key '+r.key_index,'sys');
+      $('#box').value=($('#box').value?$('#box').value+' ':'')+r.text; $('#box').focus();
+    }catch(e){ $('#meter').textContent='network error'; }
+  };
+  rec.start(250); $('#mic').classList.add('rec'); $('#mic').textContent='STOP';
+  const buf=new Uint8Array(analyser.frequencyBinCount);
+  tick=setInterval(()=>{
+    analyser.getByteFrequencyData(buf);
+    bars.forEach((b,i)=>{ b.style.height=Math.max(2,(buf[i%buf.length]/255)*22)+'px'; });
+    const s=((Date.now()-t0)/1000).toFixed(0);
+    const est=(chunks.reduce((a,c)=>a+c.size,0)/1024).toFixed(0);
+    $('#meter').textContent='recording · '+s+'s · '+est+' KB';
+  },120);
+};
+
+/* ---------------- reader ---------------- */
+let words=[],wi=0,rate=1,utt;
+function readAloud(text){
+  const box=$('#rtxt'); box.innerHTML='';
+  words=text.split(/(\s+)/);
+  words.forEach((w,i)=>{ const s=document.createElement('span'); s.textContent=w;
+    if(w.trim()) s.className='w'; s.dataset.i=i; box.appendChild(s); });
+  $('#reader').classList.add('on');
+  speechSynthesis.cancel();
+  utt=new SpeechSynthesisUtterance(text); utt.rate=rate; utt.lang='en-GB';
+  const v=speechSynthesis.getVoices().find(v=>/en-GB|Daniel|Serena|Karen/.test(v.name+v.lang));
+  if(v) utt.voice=v;
+  utt.onboundary=e=>{
+    if(e.name!=='word'&&e.charIndex==null) return;
+    let acc=0,idx=0;
+    for(let i=0;i<words.length;i++){ acc+=words[i].length; if(acc>e.charIndex){ idx=i; break; } }
+    $$('#rtxt span.on').forEach(s=>s.classList.remove('on'));
+    const s=$('#rtxt span[data-i="'+idx+'"]'); if(s){ s.classList.add('on'); s.scrollIntoView({block:'center',behavior:'smooth'}); }
+    $('#rstat').textContent='rate '+rate.toFixed(1)+'x';
+  };
+  utt.onend=()=>{ $('#rstat').textContent='finished'; };
+  speechSynthesis.speak(utt);
+}
+$('#read').onclick=()=>{
+  const sel=window.getSelection().toString().trim();
+  const last=[...$$('#chat .msg')].pop();
+  readAloud(sel|| (last?last.innerText.replace(/^\w+\n/,''):'Nothing to read yet.'));
+};
+$('#rclose').onclick=()=>{ speechSynthesis.cancel(); $('#reader').classList.remove('on'); };
+$('#rplay').onclick=()=>{ if(speechSynthesis.paused){speechSynthesis.resume();$('#rplay').textContent='Pause';}
+  else {speechSynthesis.pause();$('#rplay').textContent='Play';} };
+$('#rslow').onclick=()=>{ rate=Math.max(.5,rate-.1); restartRead(); };
+$('#rfast').onclick=()=>{ rate=Math.min(2.2,rate+.1); restartRead(); };
+function restartRead(){ const t=$('#rtxt').innerText; speechSynthesis.cancel(); readAloud(t); }
+
+/* ---------------- gallery ---------------- */
+async function loadGallery(){
+  const r=await(await fetch('/api/gallery')).json();
+  $('#grid').innerHTML=r.items.map(i=>`<div class="card"><img loading="lazy" src="${i.url}">
+   <div class="cap"><b>${i.name}</b><button class="btn" style="padding:3px 7px;font-size:11px"
+   onclick="copyRaw('${i.rel}')">link</button></div></div>`).join('');
+}
+function copyRaw(rel){
+  const url='https://raw.githubusercontent.com/'+ST.repo_slug+'/'+ST.branch+'/'+rel.replace('_web.jpg','.png');
+  navigator.clipboard.writeText(url); log('link',url,'sys');
+}
+const drop=$('#drop');
+drop.onclick=()=>{ const i=document.createElement('input'); i.type='file'; i.onchange=e=>upload(e.target.files[0]); i.click(); };
+['dragover','dragenter'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.add('hot')}));
+['dragleave','drop'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.remove('hot')}));
+drop.addEventListener('drop',ev=>{ if(ev.dataTransfer.files[0]) upload(ev.dataTransfer.files[0]); });
+async function upload(f){
+  const name=$('#iname').value.trim(); if(!name){ log('frames','give it a name first','sys'); return; }
+  const fd=new FormData(); fd.append('file',f); fd.append('name',name); fd.append('folder',$('#ifolder').value.trim());
+  log('frames','uploading '+(f.size/1048576).toFixed(1)+' MB','sys');
+  const r=await(await fetch('/api/image',{method:'POST',body:fd})).json();
+  if(!r.ok){ log('frames',r.error,'sys'); return; }
+  navigator.clipboard.writeText(r.raw);
+  log('frames','<b>'+name+'</b> committed and pushed. Link copied.<br>'+r.raw,'sys');
+  loadGallery();
+}
+
+/* ---------------- usage ---------------- */
+async function loadUsage(){
+  const r=await(await fetch('/api/usage')).json();
+  $('#uToday').textContent=((r.today.in+r.today.out)/1000).toFixed(0)+'k';
+  $('#uAvg').textContent=(r.avg7/1000).toFixed(0)+'k';
+  const max=Math.max(1,...r.days.map(d=>d.in+d.out));
+  $('#uDays').innerHTML=r.days.map(d=>`<div class="k">${d.d} · ${((d.in+d.out)/1000).toFixed(0)}k</div>
+   <div class="bar"><i style="width:${((d.in+d.out)/max*100).toFixed(0)}%"></i></div>`).join('');
+  let advice='';
+  if(r.avg7>0){
+    const t=(r.today.in+r.today.out);
+    advice = t > r.avg7*1.6 ? 'You are well above your usual pace today. A break would be sensible.' :
+             t > r.avg7 ? 'Slightly above your usual pace.' : 'Comfortably within your usual pace.';
+  }
+  $('#uNote').textContent=advice+' '+r.note;
+}
+
+
+
+/* ---------------- text size ---------------- */
+function setFS(which,val){
+  if(which==='L'){ FSL=Math.max(11,Math.min(30,val));
+    document.documentElement.style.setProperty('--fsL',FSL+'px');
+    $('#lsize').textContent=FSL; localStorage.setItem('fsL',FSL); }
+  else { FST=Math.max(9,Math.min(28,val));
+    term.options.fontSize=FST; $('#tsize').textContent=FST; localStorage.setItem('fsT',FST);
+    setTimeout(()=>{fit.fit();size()},30); }
+}
+let FSL=parseInt(localStorage.getItem('fsL')||'14'), FST=parseInt(localStorage.getItem('fsT')||'13');
+$('#lplus').onclick=()=>setFS('L',FSL+1); $('#lminus').onclick=()=>setFS('L',FSL-1);
+$('#tplus').onclick=()=>setFS('T',FST+1); $('#tminus').onclick=()=>setFS('T',FST-1);
+setFS('L',FSL); setFS('T',FST);
+
+/* ---------------- browser ---------------- */
+async function browsers(){
+  const r=await(await fetch('/api/browsers')).json();
+  $('#brow').innerHTML = (r.found.length? r.found : ['none found']).map(b=>
+    '<button class="pill'+(b===r.chosen||(!r.chosen&&b===r.preferred)?' on':'')+'" onclick="pickBrowser(\''+b.replace(/'/g,"")+'\')">'+b+'</button>').join('');
+}
+async function pickBrowser(b){
+  await fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({browser:b})});
+  log('browser',b+' will be used from now on','sys'); browsers();
+}
+
+/* ---------------- keys ---------------- */
+async function keys(){
+  const r=await(await fetch('/api/keys')).json();
+  let h='';
+  for(const p in r.providers){
+    const list=r.keys[p]||[];
+    if(!list.length && p==='other') continue;
+    h+='<div class="prov"><b>'+r.providers[p].label+'</b><span class="k">'+list.length+' key(s)</span></div>';
+    h+= list.length ? list.map(e=>'<div class="keyrow"><span class="m">'+e.mask+'</span>'+
+        '<span class="st '+e.state+'">'+e.state+'</span>'+
+        '<button class="pill sm" onclick="kact(\''+p+'\','+e.i+',\'first\')">first</button>'+
+        (p==='assemblyai'?'<button class="pill sm" onclick="kact(\''+p+'\','+e.i+',\'test\')">test</button>':'')+
+        '<button class="pill sm" onclick="kact(\''+p+'\','+e.i+',\'delete\')">&times;</button></div>').join('')
+      : '<span class="k">none</span>';
+  }
+  $('#klist').innerHTML=h;
+}
+async function kact(p,i,act){
+  await fetch('/api/keys/act',{method:'POST',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({provider:p,i:i,act:act})}); keys();
+}
+$('#kimport').onclick=()=>{const inp=document.createElement('input');inp.type='file';
+  inp.onchange=async e=>{const fd=new FormData();fd.append('file',e.target.files[0]);
+   const r=await(await fetch('/api/keys/import',{method:'POST',body:fd})).json();
+   log('keys','found '+r.found+', added '+r.added,'sys');keys();boot();};inp.click();};
+$('#kpaste').onclick=async()=>{const t=prompt('Paste anything that contains keys');if(!t)return;
+  const r=await(await fetch('/api/keys/import',{method:'POST',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({text:t})})).json();log('keys','found '+r.found+', added '+r.added,'sys');keys();boot();};
+$('#krefresh').onclick=keys;
+$('#gear').onclick=()=>{$('#modal').classList.add('on');keys();browsers();};
+$('#close').onclick=()=>$('#modal').classList.remove('on');
+$('#modal').addEventListener('click',e=>{if(e.target.id==='modal')$('#modal').classList.remove('on')});
+
+/* ---------------- settings ---------------- */
+async function boot(){
+  ST=await(await fetch('/api/state')).json();
+  $('#ver').textContent=ST.version; $('#repo').textContent=ST.repo_slug+' · '+ST.branch;
+  $('#cRepo').value=ST.repo_path; $('#cSlug').value=ST.repo_slug; $('#cBr').value=ST.branch;
+  $('#cCmd').value='claude';
+  log('brain freedom','Left brain, one thing at a time. Right brain, the whole forest, a real terminal running the agent inside your repository.<br>Hold REC, speak, press Send, and watch it typed across.','sys');
+  if(!ST.has_key) log('keys','No AssemblyAI key yet. Tap the gold gear and import your keys file, voice starts working immediately.','sys');
+  if(!ST.repo_ok) log('repo','No repository checkout yet. Tap the gear and press <b>Create or clone repository</b>, it makes the folder and pulls it down for you.','sys');
+}
+$('#save').onclick=async()=>{
+  const b={repo_path:$('#cRepo').value,repo_slug:$('#cSlug').value,branch:$('#cBr').value,claude_cmd:$('#cCmd').value};
+  await fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});
+  log('settings','saved','sys'); boot();
+};
+$('#restart').onclick=async()=>{ await fetch('/api/restart',{method:'POST'}); log('engine','agent restarted','sys'); };
+$('#pushnow').onclick=async()=>{ const r=await(await fetch('/api/push',{method:'POST'})).json();
+  log('git',r.ok?'pushed':'nothing to push or push failed','sys'); };
+
+/* ---------------- splitter ---------------- */
+let dragging=false;
+$('#drag').addEventListener('mousedown',()=>{dragging=true;document.body.style.cursor='col-resize'});
+window.addEventListener('mouseup',()=>{dragging=false;document.body.style.cursor=''});
+window.addEventListener('mousemove',e=>{ if(!dragging)return;
+  const pct=Math.min(72,Math.max(24,e.clientX/window.innerWidth*100));
+  $('#left').style.width=pct+'%'; fit.fit(); sendSize(); });
+window.addEventListener('resize',()=>{fit.fit();sendSize()});
+speechSynthesis.getVoices();
+boot();
+</script>
+</body></html>
