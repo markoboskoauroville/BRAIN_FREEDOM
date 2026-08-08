@@ -174,7 +174,7 @@ input:focus{outline:0;border-color:var(--gold)}
    <div id="rhead">
      <span class="logo" style="color:var(--dim)">Engine</span>
      <span class="led" id="ledR"></span>
-     <span class="k">claude code · live pty</span><span class="spacer"></span>
+     <span class="k" id="cwd">claude code · live pty</span><span class="spacer"></span>
      <div class="fs" title="Text size, terminal">
        <button id="tminus">&minus;</button><span id="tsize">13</span><button id="tplus">+</button>
      </div>
@@ -561,6 +561,8 @@ window.addEventListener('unhandledrejection',e=>report('promise', e.reason&&(e.r
 async function boot(){
   ST=await(await fetch('/api/state')).json();
   $('#ver').textContent=ST.version;$('#repo').textContent=ST.repo_slug+' · '+ST.branch;
+  const short=(ST.repo_path||'').replace(/^\/Users\/[^/]+/,'~').replace(/^\/home\/[^/]+/,'~');
+  $('#cwd').textContent='claude code · '+short;
   $('#cRepo').value=ST.repo_path;$('#cSlug').value=ST.repo_slug;$('#cBr').value=ST.branch;
   health();
   if(!$('#chat').children.length){

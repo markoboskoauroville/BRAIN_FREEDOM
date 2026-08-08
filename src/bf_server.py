@@ -13,7 +13,7 @@ CFG_DIR  = HOME / ".brain_freedom"
 CFG      = CFG_DIR / "config.json"
 INBOX    = APP / "inbox"
 BASE_PORT= 8770
-VERSION  = "v8 (a)"
+VERSION  = "v9 (a)"
 
 for d in (CFG_DIR, INBOX):
     d.mkdir(parents=True, exist_ok=True)
@@ -239,8 +239,9 @@ class Term:
         if pid == 0:
             os.environ["TERM"] = "xterm-256color"
             os.environ["COLORTERM"] = "truecolor"
-            wd = C.get("repo_path")
-            try: os.chdir(wd if wd and os.path.isdir(wd) else str(HOME))
+            wd = cfg_load().get("repo_path") or ""
+            if not os.path.isdir(wd): wd = str(HOME)
+            try: os.chdir(wd)
             except Exception: pass
             shell = os.environ.get("SHELL") or ""
             if not os.path.exists(shell):
@@ -249,7 +250,8 @@ class Term:
                         shell = cand; break
             try:
                 # login shell, so the agent inherits the PATH the user actually has
-                os.execvp(shell, [shell, "-lc", cmd])
+                # cd is repeated inside the shell so the agent reports the right folder
+                os.execvp(shell, [shell, "-lc", "cd %s 2>/dev/null; exec %s" % (json.dumps(wd), cmd)])
             except Exception as e:
                 sys.stdout.write("\r\n  could not start %r in %s\r\n  %s\r\n" % (cmd, shell, e))
                 sys.stdout.flush()
@@ -305,11 +307,23 @@ class Term:
         self.pid=None; self.fd=None
 
 TERM = Term()
+REPO_READY = threading.Event()
 
 @sock.route("/ws/term")
 def ws_term(ws):
-    TERM.start()
     TERM.clients.append(ws)
+    if TERM.pid is None and not REPO_READY.is_set():
+        try:
+            ws.send("\r\n  \033[38;5;245mpreparing the working folder, this happens once\033[0m\r\n")
+        except Exception:
+            pass
+        REPO_READY.wait(timeout=300)
+        c = cfg_load()
+        try:
+            ws.send("  \033[38;5;208mworking in %s\033[0m\r\n\r\n" % c.get("repo_path"))
+        except Exception:
+            pass
+    TERM.start()
     try:
         if TERM.buf:
             ws.send(bytes(TERM.buf[-40000:]).decode("utf-8","replace"))
@@ -344,6 +358,9 @@ def state():
         "repo_ok": os.path.isdir(os.path.join(c["repo_path"], ".git")),
         "browser": pick_browser(),
         "term_alive": TERM.pid is not None,
+        "repo_ready": REPO_READY.is_set(),
+        "agent_cwd": (os.readlink("/proc/%d/cwd" % TERM.pid)
+                      if (TERM.pid and os.path.exists("/proc/%d/cwd" % TERM.pid)) else ""),
     })
 
 @app.post("/api/config")
@@ -368,7 +385,9 @@ def key():
 
 @app.post("/api/restart")
 def restart():
-    TERM.kill(); time.sleep(.4); TERM.start()
+    TERM.kill(); time.sleep(.4)
+    REPO_READY.wait(timeout=120)
+    TERM.start()
     return jsonify(ok=True)
 
 # ---------------------------------------------------------------- voice
@@ -764,6 +783,8 @@ if __name__ == "__main__":
             print("  " + (G if okr else D) + ("repository " + msg + "  " + path if okr else msg) + R)
         except Exception as e:
             note_error("startup", e, "server")
+        finally:
+            REPO_READY.set()
     threading.Thread(target=prepare_repo, daemon=True).start()
     def open_when_ready():
         import urllib.request

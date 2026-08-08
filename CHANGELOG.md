@@ -8,6 +8,23 @@ The version label carries an account letter, `(a)`, marking which account last t
 
 ---
 
+## v9 (a) — 8.8.2026 — the agent actually starts inside the film
+
+A real bug, and one that had been quietly wrong since the working folder moved. The folder was created and
+cloned correctly, but the agent was started by the browser the moment the page loaded, which on a first run is
+long before a 29 MB clone has finished. With no folder to enter, it fell back to the home folder, and Claude
+Code duly announced that it had been launched in the home directory.
+
+**The agent now waits for the checkout.** The terminal prints one line saying the working folder is being
+prepared, waits for the clone, prints the path it will work in, and only then starts. On every later run the
+folder already exists, the gate is open immediately and nothing is delayed.
+
+**It is also told the path twice.** The process changes directory before it launches, and the shell is given
+an explicit `cd` as well, so nothing depends on inherited state.
+
+**The path is visible.** The folder the agent is working in is now printed beside ENGINE in the header, and
+reported by the state endpoint, so it can be checked at a glance rather than trusted.
+
 ## v8 (a) — 8.8.2026 — colours that survive Terminal.app, and a server that starts at once
 
 **The logo was the wrong colours because Terminal.app has no 24 bit colour.** macOS Terminal supports 256
