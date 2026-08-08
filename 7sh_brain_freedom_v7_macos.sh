@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # =============================================================================
-#  BRAIN FREEDOM  v6 (a)  ·  Mantra Productions
+#  BRAIN FREEDOM  v7 (a)  ·  Mantra Productions
 #  One file, one keypress. No switches, no flags, nothing to remember.
-#  Run it:   bash 6sh_brain_freedom_v6_macos.sh
+#  Run it:   bash 7sh_brain_freedom_v7_macos.sh
 # =============================================================================
-G=$'\033[38;2;224;163;64m'; C=$'\033[38;2;77;214;232m'; Y=$'\033[38;2;242;193;105m'
+G=$'\033[38;2;224;132;46m'; C=$'\033[38;2;116;199;232m'; Y=$'\033[38;2;242;193;105m'
 D=$'\033[38;2;138;133;120m'; W=$'\033[38;2;233;227;212m'; R=$'\033[0m'
 APP="$HOME/brain_freedom"; CFG="$HOME/.brain_freedom"; BIN="$HOME/.local/bin"
 say(){ printf "  %s\n" "$1"; }
@@ -14,18 +14,18 @@ warn(){ printf "  ${Y}▍${R} %s\n" "$1"; }
 logo(){
 clear 2>/dev/null || true
 echo
-printf "${G}████████    ████████      ██████    ██████████  ██      ██  ${R}\n"
-printf "${G}██      ██  ██      ██  ██      ██      ██      ████    ██  ${R}\n"
-printf "${G}████████    ████████    ██      ██      ██      ██  ██  ██  ${R}\n"
-printf "${G}██      ██  ████        ██████████      ██      ██    ████  ${R}\n"
-printf "${G}██      ██  ██  ████    ██      ██      ██      ██      ██  ${R}\n"
-printf "${G}████████    ██    ████  ██      ██  ██████████  ██      ██  ${R}\n"
-printf "${C}██████████  ████████    ██████████  ██████████  ████████      ██████    ██      ██  ${R}\n"
-printf "${C}██          ██      ██  ██          ██          ██      ██  ██      ██  ████  ████  ${R}\n"
-printf "${C}████████    ████████    ████████    ████████    ██      ██  ██      ██  ██  ██  ██  ${R}\n"
-printf "${C}██          ████        ██          ██          ██      ██  ██      ██  ██      ██  ${R}\n"
-printf "${C}██          ██  ████    ██          ██          ██      ██  ██      ██  ██      ██  ${R}\n"
-printf "${C}██          ██    ████  ██████████  ██████████  ████████      ██████    ██      ██  ${R}\n"
+printf "${C}████████    ████████      ██████    ██████████  ██      ██  ${R}\n"
+printf "${C}██      ██  ██      ██  ██      ██      ██      ████    ██  ${R}\n"
+printf "${C}████████    ████████    ██      ██      ██      ██  ██  ██  ${R}\n"
+printf "${C}██      ██  ████        ██████████      ██      ██    ████  ${R}\n"
+printf "${C}██      ██  ██  ████    ██      ██      ██      ██      ██  ${R}\n"
+printf "${C}████████    ██    ████  ██      ██  ██████████  ██      ██  ${R}\n"
+printf "${G}██████████  ████████    ██████████  ██████████  ████████      ██████    ██      ██  ${R}\n"
+printf "${G}██          ██      ██  ██          ██          ██      ██  ██      ██  ████  ████  ${R}\n"
+printf "${G}████████    ████████    ████████    ████████    ██      ██  ██      ██  ██  ██  ██  ${R}\n"
+printf "${G}██          ████        ██          ██          ██      ██  ██      ██  ██      ██  ${R}\n"
+printf "${G}██          ██  ████    ██          ██          ██      ██  ██      ██  ██      ██  ${R}\n"
+printf "${G}██          ██    ████  ██████████  ██████████  ████████      ██████    ██      ██  ${R}\n"
 
 echo
 printf "  ${D}left brain speaks · right brain works · one golden key${R}\n\n"
@@ -69,7 +69,7 @@ CFG_DIR  = HOME / ".brain_freedom"
 CFG      = CFG_DIR / "config.json"
 INBOX    = APP / "inbox"
 BASE_PORT= 8770
-VERSION  = "v6 (a)"
+VERSION  = "v7 (a)"
 
 for d in (CFG_DIR, INBOX):
     d.mkdir(parents=True, exist_ok=True)
@@ -465,6 +465,7 @@ def transcribe():
                     key_result("assemblyai", k, False); tried.append("key %d: %s" % (n+1, p.get("error"))); break
         except Exception as e:
             tried.append("key %d: %s" % (n+1, str(e)[:80]))
+    note_error("/api/transcribe", "; ".join(tried), "voice")
     return jsonify(ok=False, error="every key failed", tried=tried)
 
 # ---------------------------------------------------------------- images and github
@@ -600,6 +601,35 @@ def usage():
                    avg7=int(avg), note="Estimate from local session logs, not an official account figure.")
 
 
+
+# ---------------------------------------------------------------- error log
+ERRORS = []
+def note_error(where, detail, kind="server"):
+    ERRORS.append({"t": time.strftime("%H:%M:%S"), "date": time.strftime("%Y-%m-%d"),
+                   "where": where, "kind": kind, "detail": str(detail)[:4000]})
+    del ERRORS[:-60]
+
+@app.errorhandler(Exception)
+def any_error(e):
+    import traceback
+    note_error(request.path if request else "?", traceback.format_exc(), "server")
+    return jsonify(ok=False, error="%s: %s" % (type(e).__name__, str(e)[:200])), 500
+
+@app.get("/api/errors")
+def errors_get():
+    return jsonify(errors=list(reversed(ERRORS)))
+
+@app.post("/api/errors")
+def errors_post():
+    o = request.json or {}
+    note_error(o.get("where", "browser"), o.get("detail", ""), "browser")
+    return jsonify(ok=True)
+
+@app.post("/api/errors/clear")
+def errors_clear():
+    ERRORS.clear()
+    return jsonify(ok=True)
+
 # ---------------------------------------------------------------- speech, edge tts
 TTS_DIR = APP / "tts"
 TTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -652,6 +682,7 @@ def tts():
     except Exception as e:
         try: os.remove(str(mp3) + ".part")
         except Exception: pass
+        note_error("/api/tts", e, "speech")
         return jsonify(ok=False, error="speech failed: %s" % str(e)[:140])
     finally:
         loop.close()
@@ -692,8 +723,8 @@ def online():
     return jsonify(online=ok, term=TERM.pid is not None, tts=tts_ok)
 
 # ---------------------------------------------------------------- banner
-G="\033[38;2;224;163;64m"; C2="\033[38;2;77;214;232m"; D="\033[38;2;140;135;120m"; W="\033[38;2;231;226;214m"; R="\033[0m"
-def banner(port, url):
+G="\033[38;2;224;132;46m"; C2="\033[38;2;116;199;232m"; D="\033[38;2;140;135;120m"; W="\033[38;2;231;226;214m"; R="\033[0m"
+def banner(port, url, compact=False):
     tty_ok = sys.stdout.isatty()
     def c(x, col): return (col+x+R) if tty_ok else x
     BRAIN = [
@@ -713,8 +744,11 @@ def banner(port, url):
         '██          ██    ████  ██████████  ██████████  ████████      ██████    ██      ██  ',
     ]
     print()
-    for r in BRAIN: print("  " + c(r, G))
-    for r in FREE:  print("  " + c(r, C2))
+    if compact:
+        print("  " + c("\u2588\u2588 BRAIN", C2) + c(" FREEDOM \u2588\u2588", G))
+    else:
+        for r in BRAIN: print("  " + c(r, C2))
+        for r in FREE:  print("  " + c(r, G))
     print()
     box = [
         ("version", VERSION),
@@ -771,7 +805,7 @@ PORT = free_port(BASE_PORT)
 if __name__ == "__main__":
     url = "http://127.0.0.1:%d" % PORT
     (APP/"port").write_text(str(PORT))
-    banner(PORT, url)
+    banner(PORT, url, compact=True)
     try:
         okr, msg, path = ensure_repo()
         print("  " + (G if okr else D) + ("repository " + msg + "  " + path if okr else msg) + R)
@@ -782,8 +816,18 @@ if __name__ == "__main__":
         print("  " + (G if okr else D) + ("repository " + msg if okr else msg) + R)
     except Exception:
         pass
-    b = open_in_browser(url)
-    print("  " + D + "opening " + (b or "your browser") + R + "\n")
+    def open_when_ready():
+        import urllib.request
+        for _ in range(60):
+            try:
+                urllib.request.urlopen(url + "/api/state", timeout=1).read(1)
+                break
+            except Exception:
+                time.sleep(0.25)
+        b = open_in_browser(url)
+        print("  " + D + "opened in " + (b or "your default browser") + R)
+        print("  " + D + "if nothing appeared, paste this into Firefox:" + R + "  " + W + url + R + "\n")
+    threading.Thread(target=open_when_ready, daemon=True).start()
     threading.Thread(target=hotkeys, args=(PORT,url), daemon=True).start()
     from werkzeug.serving import make_server
     srv = make_server("127.0.0.1", PORT, app, threaded=True)
@@ -900,6 +944,15 @@ input:focus{outline:0;border-color:var(--gold)}
 .prov{margin:16px 0 8px;display:flex;align-items:center;gap:10px}
 .prov b{color:var(--gold2);font-weight:400;font-size:11px;letter-spacing:.18em;text-transform:uppercase}
 .note{color:var(--dim);font-size:11px;line-height:1.8;letter-spacing:.03em;text-transform:none}
+.errcard{border:1px solid var(--line);border-radius:12px;background:var(--ink);padding:12px 14px;margin-bottom:10px}
+.errcard .top{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.errcard .tag{font-size:9px;letter-spacing:.14em;text-transform:uppercase;padding:3px 9px;border-radius:999px;
+ border:1px solid var(--line);color:var(--dim)}
+.errcard .tag.server{color:var(--red);border-color:#3a2626}
+.errcard .tag.browser{color:var(--blue);border-color:#26313a}
+.errcard .tag.voice,.errcard .tag.speech{color:var(--gold);border-color:#3a3426}
+.errcard pre{margin:0;white-space:pre-wrap;word-break:break-word;font-size:11px;line-height:1.6;
+ color:var(--paper);max-height:220px;overflow:auto}
 #right{flex:1;display:flex;flex-direction:column;background:#06070a;min-width:0}
 #rhead{display:flex;align-items:center;gap:9px;padding:10px 16px;border-bottom:1px solid var(--line)}
 #term{flex:1;padding:14px 30px 14px 18px;min-height:0}
@@ -973,6 +1026,16 @@ input:focus{outline:0;border-color:var(--gold)}
 </div>
 
 <div id="modal"><div class="sheet">
+  <div class="row" id="stabs" style="margin-bottom:16px">
+    <button class="pill on" data-s="sKeys">Keys</button>
+    <button class="pill" data-s="sVoice">Voice</button>
+    <button class="pill" data-s="sBrow">Browser</button>
+    <button class="pill" data-s="sRepo">Repository</button>
+    <button class="pill" data-s="sErr">Error log</button>
+    <span class="spacer"></span><button class="pill" id="close">Close</button>
+  </div>
+
+  <div class="spane" id="sKeys">
   <h2>Keys</h2>
   <p class="note">Point at any file. Notes, exports, a mess, it does not matter. Every key inside is found,
   sorted by provider and queued. Transcription walks the queue until one answers, so a dead key costs a
@@ -983,14 +1046,23 @@ input:focus{outline:0;border-color:var(--gold)}
     <button class="pill" id="krefresh">Refresh</button>
   </div>
   <div id="klist"></div>
+  </div>
+
+  <div class="spane" id="sVoice" style="display:none">
   <h2>Voice</h2>
   <p class="note">Reading aloud uses edge-tts, which returns the timing of every word, so the highlight
   follows the speech exactly rather than guessing.</p>
   <div class="row" id="voices"></div>
+  </div>
+
+  <div class="spane" id="sBrow" style="display:none">
   <h2>Browser</h2>
   <p class="note">Brain Freedom opens itself in the browser you pick here, ignoring the macOS default.
   Firefox first when present, because its recorder produces Opus.</p>
   <div class="row" id="brow"></div>
+  </div>
+
+  <div class="spane" id="sRepo" style="display:none">
   <h2>Repository</h2>
   <p class="note">The working folder is created for you at your home folder. Nothing to set up.</p>
   <div class="k">Path</div><input type="text" id="cRepo">
@@ -1001,7 +1073,19 @@ input:focus{outline:0;border-color:var(--gold)}
     <button class="pill" id="clone">Create or clone repository</button>
     <button class="pill" id="restart">Restart agent</button>
     <button class="pill" id="pushnow">Push now</button>
-    <span class="spacer"></span><button class="pill" id="close">Close</button>
+  </div>
+  </div>
+
+  <div class="spane" id="sErr" style="display:none">
+  <h2>Error log</h2>
+  <p class="note">Everything that went wrong since the app started, newest first. Each one has a copy button,
+  so you can send it to me without retyping anything.</p>
+  <div class="row" style="margin:10px 0 12px">
+    <button class="pill on" id="errRefresh">Refresh</button>
+    <button class="pill" id="errClear">Clear</button>
+    <button class="pill" id="errCopyAll">Copy all</button>
+  </div>
+  <div id="errlist"></div>
   </div>
 </div></div>
 
@@ -1280,6 +1364,38 @@ async function health(){
 }
 setInterval(health,5000);
 
+
+/* ---------- settings tabs ---------- */
+$$('#stabs .pill').forEach(b=>{ if(!b.dataset.s) return;
+  b.onclick=()=>{ $$('#stabs .pill').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+    $$('.spane').forEach(p=>p.style.display='none'); $('#'+b.dataset.s).style.display='block';
+    if(b.dataset.s==='sErr') errs(); };
+});
+
+/* ---------- error log ---------- */
+function errText(e){ return '['+e.date+' '+e.t+'] '+e.kind+' · '+e.where+'\n'+e.detail; }
+let ERRS=[];
+async function errs(){
+  const r=await(await fetch('/api/errors')).json(); ERRS=r.errors||[];
+  $('#errlist').innerHTML = ERRS.length ? ERRS.map((e,i)=>
+    '<div class="errcard"><div class="top"><span class="tag '+e.kind+'">'+e.kind+'</span>'+
+    '<span class="k">'+e.t+'</span><span class="k" style="flex:1;text-transform:none">'+
+    (e.where||'').replace(/</g,'&lt;')+'</span>'+
+    '<button class="pill sm" onclick="errCopy('+i+')">copy</button></div>'+
+    '<pre>'+(e.detail||'').replace(/</g,'&lt;')+'</pre></div>').join('')
+    : '<span class="k">nothing has gone wrong yet</span>';
+}
+function errCopy(i){ navigator.clipboard.writeText(errText(ERRS[i])); }
+$('#errRefresh').onclick=errs;
+$('#errClear').onclick=async()=>{await fetch('/api/errors/clear',{method:'POST'});errs()};
+$('#errCopyAll').onclick=()=>navigator.clipboard.writeText(ERRS.map(errText).join('\n\n'));
+function report(where,detail){
+  try{ fetch('/api/errors',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({where:where,detail:String(detail).slice(0,3000)})}); }catch(e){}
+}
+window.addEventListener('error',e=>report(e.filename+':'+e.lineno, e.message+'\n'+(e.error&&e.error.stack||'')));
+window.addEventListener('unhandledrejection',e=>report('promise', e.reason&&(e.reason.stack||e.reason.message)||e.reason));
+
 /* ---------- boot ---------- */
 async function boot(){
   ST=await(await fetch('/api/state')).json();
@@ -1320,7 +1436,13 @@ if [ ! -f "$CFG/config.json" ]; then
   printf '%s\n' '{"assemblyai_key":"","github_token":"","repo_path":"'"$HOME"'/BRAIN_BRAKE","repo_slug":"markoboskoauroville/BRAIN_BRAKE","branch":"main","claude_cmd":"claude","voice_lang":"en"}' > "$CFG/config.json"
   chmod 600 "$CFG/config.json"; ok "defaults written, no keys asked, they live behind the gold gear"
 else ok "existing settings kept"; fi
-echo; say "${G}ready${R}"; say "${D}press ${W}[S]${D} to start, or type ${W}brainfreedom${D} any time${R}"; echo
+echo
+printf "  ${G}ready${R}\n\n"
+printf "  ${D}to start it, press${R} ${W}[S]${R} ${D}now, or type this anywhere in Terminal:${R}\n\n"
+printf "      ${C}brainfreedom${R}\n\n"
+printf "  ${D}it opens by itself in the browser you chose. If it does not,${R}\n"
+printf "  ${D}paste the address it prints into Firefox.${R}\n"
+echo
 }
 
 uninstall_all(){

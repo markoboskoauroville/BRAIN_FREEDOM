@@ -8,6 +8,26 @@ The version label carries an account letter, `(a)`, marking which account last t
 
 ---
 
+## v7 (a) — 8.8.2026 — it opens by itself, and it tells you what broke
+
+**The browser really opens now.** The old code launched it the instant the process started, before the server
+was listening, so the browser arrived at a closed door and gave up. It now waits until the server answers its
+own address, then opens, and prints the address in plain sight in case anything still goes wrong.
+
+**The command is spelled out at the end of installation**, in colour, on its own line, so there is nothing to
+remember or scroll back for.
+
+**Error log**, behind the gear, as its own tab. Every failure since the app started, newest first, each as a
+card with its kind, its time, where it happened, and a copy button. Browser errors are caught too and sent
+back to the same place, so a broken script in the interface and a broken call on the server land side by side.
+Copy all takes the lot.
+
+**Settings became tabs.** Keys, Voice, Browser, Repository, Error log, instead of one long scroll.
+
+**The logo took its film colours.** BRAIN in light blue, FREEDOM in orange, the cold and warm poles again. The
+running server prints a compact one line version instead of twelve, so starting it no longer fills the
+terminal.
+
 ## v6 (a) — 8.8.2026 — reading in place, and a meter that means something
 
 **Reading no longer opens a window.** A small note beside every message reads it aloud and highlights each

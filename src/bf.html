@@ -105,6 +105,15 @@ input:focus{outline:0;border-color:var(--gold)}
 .prov{margin:16px 0 8px;display:flex;align-items:center;gap:10px}
 .prov b{color:var(--gold2);font-weight:400;font-size:11px;letter-spacing:.18em;text-transform:uppercase}
 .note{color:var(--dim);font-size:11px;line-height:1.8;letter-spacing:.03em;text-transform:none}
+.errcard{border:1px solid var(--line);border-radius:12px;background:var(--ink);padding:12px 14px;margin-bottom:10px}
+.errcard .top{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.errcard .tag{font-size:9px;letter-spacing:.14em;text-transform:uppercase;padding:3px 9px;border-radius:999px;
+ border:1px solid var(--line);color:var(--dim)}
+.errcard .tag.server{color:var(--red);border-color:#3a2626}
+.errcard .tag.browser{color:var(--blue);border-color:#26313a}
+.errcard .tag.voice,.errcard .tag.speech{color:var(--gold);border-color:#3a3426}
+.errcard pre{margin:0;white-space:pre-wrap;word-break:break-word;font-size:11px;line-height:1.6;
+ color:var(--paper);max-height:220px;overflow:auto}
 #right{flex:1;display:flex;flex-direction:column;background:#06070a;min-width:0}
 #rhead{display:flex;align-items:center;gap:9px;padding:10px 16px;border-bottom:1px solid var(--line)}
 #term{flex:1;padding:14px 30px 14px 18px;min-height:0}
@@ -178,6 +187,16 @@ input:focus{outline:0;border-color:var(--gold)}
 </div>
 
 <div id="modal"><div class="sheet">
+  <div class="row" id="stabs" style="margin-bottom:16px">
+    <button class="pill on" data-s="sKeys">Keys</button>
+    <button class="pill" data-s="sVoice">Voice</button>
+    <button class="pill" data-s="sBrow">Browser</button>
+    <button class="pill" data-s="sRepo">Repository</button>
+    <button class="pill" data-s="sErr">Error log</button>
+    <span class="spacer"></span><button class="pill" id="close">Close</button>
+  </div>
+
+  <div class="spane" id="sKeys">
   <h2>Keys</h2>
   <p class="note">Point at any file. Notes, exports, a mess, it does not matter. Every key inside is found,
   sorted by provider and queued. Transcription walks the queue until one answers, so a dead key costs a
@@ -188,14 +207,23 @@ input:focus{outline:0;border-color:var(--gold)}
     <button class="pill" id="krefresh">Refresh</button>
   </div>
   <div id="klist"></div>
+  </div>
+
+  <div class="spane" id="sVoice" style="display:none">
   <h2>Voice</h2>
   <p class="note">Reading aloud uses edge-tts, which returns the timing of every word, so the highlight
   follows the speech exactly rather than guessing.</p>
   <div class="row" id="voices"></div>
+  </div>
+
+  <div class="spane" id="sBrow" style="display:none">
   <h2>Browser</h2>
   <p class="note">Brain Freedom opens itself in the browser you pick here, ignoring the macOS default.
   Firefox first when present, because its recorder produces Opus.</p>
   <div class="row" id="brow"></div>
+  </div>
+
+  <div class="spane" id="sRepo" style="display:none">
   <h2>Repository</h2>
   <p class="note">The working folder is created for you at your home folder. Nothing to set up.</p>
   <div class="k">Path</div><input type="text" id="cRepo">
@@ -206,7 +234,19 @@ input:focus{outline:0;border-color:var(--gold)}
     <button class="pill" id="clone">Create or clone repository</button>
     <button class="pill" id="restart">Restart agent</button>
     <button class="pill" id="pushnow">Push now</button>
-    <span class="spacer"></span><button class="pill" id="close">Close</button>
+  </div>
+  </div>
+
+  <div class="spane" id="sErr" style="display:none">
+  <h2>Error log</h2>
+  <p class="note">Everything that went wrong since the app started, newest first. Each one has a copy button,
+  so you can send it to me without retyping anything.</p>
+  <div class="row" style="margin:10px 0 12px">
+    <button class="pill on" id="errRefresh">Refresh</button>
+    <button class="pill" id="errClear">Clear</button>
+    <button class="pill" id="errCopyAll">Copy all</button>
+  </div>
+  <div id="errlist"></div>
   </div>
 </div></div>
 
@@ -484,6 +524,38 @@ async function health(){
   }catch(e){$('#ledL').classList.remove('on');$('#ledR').classList.remove('on')}
 }
 setInterval(health,5000);
+
+
+/* ---------- settings tabs ---------- */
+$$('#stabs .pill').forEach(b=>{ if(!b.dataset.s) return;
+  b.onclick=()=>{ $$('#stabs .pill').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+    $$('.spane').forEach(p=>p.style.display='none'); $('#'+b.dataset.s).style.display='block';
+    if(b.dataset.s==='sErr') errs(); };
+});
+
+/* ---------- error log ---------- */
+function errText(e){ return '['+e.date+' '+e.t+'] '+e.kind+' · '+e.where+'\n'+e.detail; }
+let ERRS=[];
+async function errs(){
+  const r=await(await fetch('/api/errors')).json(); ERRS=r.errors||[];
+  $('#errlist').innerHTML = ERRS.length ? ERRS.map((e,i)=>
+    '<div class="errcard"><div class="top"><span class="tag '+e.kind+'">'+e.kind+'</span>'+
+    '<span class="k">'+e.t+'</span><span class="k" style="flex:1;text-transform:none">'+
+    (e.where||'').replace(/</g,'&lt;')+'</span>'+
+    '<button class="pill sm" onclick="errCopy('+i+')">copy</button></div>'+
+    '<pre>'+(e.detail||'').replace(/</g,'&lt;')+'</pre></div>').join('')
+    : '<span class="k">nothing has gone wrong yet</span>';
+}
+function errCopy(i){ navigator.clipboard.writeText(errText(ERRS[i])); }
+$('#errRefresh').onclick=errs;
+$('#errClear').onclick=async()=>{await fetch('/api/errors/clear',{method:'POST'});errs()};
+$('#errCopyAll').onclick=()=>navigator.clipboard.writeText(ERRS.map(errText).join('\n\n'));
+function report(where,detail){
+  try{ fetch('/api/errors',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({where:where,detail:String(detail).slice(0,3000)})}); }catch(e){}
+}
+window.addEventListener('error',e=>report(e.filename+':'+e.lineno, e.message+'\n'+(e.error&&e.error.stack||'')));
+window.addEventListener('unhandledrejection',e=>report('promise', e.reason&&(e.reason.stack||e.reason.message)||e.reason));
 
 /* ---------- boot ---------- */
 async function boot(){

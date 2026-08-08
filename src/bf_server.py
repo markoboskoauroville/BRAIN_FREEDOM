@@ -13,7 +13,7 @@ CFG_DIR  = HOME / ".brain_freedom"
 CFG      = CFG_DIR / "config.json"
 INBOX    = APP / "inbox"
 BASE_PORT= 8770
-VERSION  = "v6 (a)"
+VERSION  = "v7 (a)"
 
 for d in (CFG_DIR, INBOX):
     d.mkdir(parents=True, exist_ok=True)
@@ -409,6 +409,7 @@ def transcribe():
                     key_result("assemblyai", k, False); tried.append("key %d: %s" % (n+1, p.get("error"))); break
         except Exception as e:
             tried.append("key %d: %s" % (n+1, str(e)[:80]))
+    note_error("/api/transcribe", "; ".join(tried), "voice")
     return jsonify(ok=False, error="every key failed", tried=tried)
 
 # ---------------------------------------------------------------- images and github
@@ -544,6 +545,35 @@ def usage():
                    avg7=int(avg), note="Estimate from local session logs, not an official account figure.")
 
 
+
+# ---------------------------------------------------------------- error log
+ERRORS = []
+def note_error(where, detail, kind="server"):
+    ERRORS.append({"t": time.strftime("%H:%M:%S"), "date": time.strftime("%Y-%m-%d"),
+                   "where": where, "kind": kind, "detail": str(detail)[:4000]})
+    del ERRORS[:-60]
+
+@app.errorhandler(Exception)
+def any_error(e):
+    import traceback
+    note_error(request.path if request else "?", traceback.format_exc(), "server")
+    return jsonify(ok=False, error="%s: %s" % (type(e).__name__, str(e)[:200])), 500
+
+@app.get("/api/errors")
+def errors_get():
+    return jsonify(errors=list(reversed(ERRORS)))
+
+@app.post("/api/errors")
+def errors_post():
+    o = request.json or {}
+    note_error(o.get("where", "browser"), o.get("detail", ""), "browser")
+    return jsonify(ok=True)
+
+@app.post("/api/errors/clear")
+def errors_clear():
+    ERRORS.clear()
+    return jsonify(ok=True)
+
 # ---------------------------------------------------------------- speech, edge tts
 TTS_DIR = APP / "tts"
 TTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -596,6 +626,7 @@ def tts():
     except Exception as e:
         try: os.remove(str(mp3) + ".part")
         except Exception: pass
+        note_error("/api/tts", e, "speech")
         return jsonify(ok=False, error="speech failed: %s" % str(e)[:140])
     finally:
         loop.close()
@@ -636,8 +667,8 @@ def online():
     return jsonify(online=ok, term=TERM.pid is not None, tts=tts_ok)
 
 # ---------------------------------------------------------------- banner
-G="\033[38;2;224;163;64m"; C2="\033[38;2;77;214;232m"; D="\033[38;2;140;135;120m"; W="\033[38;2;231;226;214m"; R="\033[0m"
-def banner(port, url):
+G="\033[38;2;224;132;46m"; C2="\033[38;2;116;199;232m"; D="\033[38;2;140;135;120m"; W="\033[38;2;231;226;214m"; R="\033[0m"
+def banner(port, url, compact=False):
     tty_ok = sys.stdout.isatty()
     def c(x, col): return (col+x+R) if tty_ok else x
     BRAIN = [
@@ -657,8 +688,11 @@ def banner(port, url):
         '██          ██    ████  ██████████  ██████████  ████████      ██████    ██      ██  ',
     ]
     print()
-    for r in BRAIN: print("  " + c(r, G))
-    for r in FREE:  print("  " + c(r, C2))
+    if compact:
+        print("  " + c("\u2588\u2588 BRAIN", C2) + c(" FREEDOM \u2588\u2588", G))
+    else:
+        for r in BRAIN: print("  " + c(r, C2))
+        for r in FREE:  print("  " + c(r, G))
     print()
     box = [
         ("version", VERSION),
@@ -715,7 +749,7 @@ PORT = free_port(BASE_PORT)
 if __name__ == "__main__":
     url = "http://127.0.0.1:%d" % PORT
     (APP/"port").write_text(str(PORT))
-    banner(PORT, url)
+    banner(PORT, url, compact=True)
     try:
         okr, msg, path = ensure_repo()
         print("  " + (G if okr else D) + ("repository " + msg + "  " + path if okr else msg) + R)
@@ -726,8 +760,18 @@ if __name__ == "__main__":
         print("  " + (G if okr else D) + ("repository " + msg if okr else msg) + R)
     except Exception:
         pass
-    b = open_in_browser(url)
-    print("  " + D + "opening " + (b or "your browser") + R + "\n")
+    def open_when_ready():
+        import urllib.request
+        for _ in range(60):
+            try:
+                urllib.request.urlopen(url + "/api/state", timeout=1).read(1)
+                break
+            except Exception:
+                time.sleep(0.25)
+        b = open_in_browser(url)
+        print("  " + D + "opened in " + (b or "your default browser") + R)
+        print("  " + D + "if nothing appeared, paste this into Firefox:" + R + "  " + W + url + R + "\n")
+    threading.Thread(target=open_when_ready, daemon=True).start()
     threading.Thread(target=hotkeys, args=(PORT,url), daemon=True).start()
     from werkzeug.serving import make_server
     srv = make_server("127.0.0.1", PORT, app, threaded=True)
