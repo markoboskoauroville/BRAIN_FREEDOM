@@ -8,6 +8,21 @@ The version label carries an account letter, `(a)`, marking which account last t
 
 ---
 
+## v8 (a) — 8.8.2026 — colours that survive Terminal.app, and a server that starts at once
+
+**The logo was the wrong colours because Terminal.app has no 24 bit colour.** macOS Terminal supports 256
+colours and silently approximates anything else, which is why light blue and orange arrived as green and
+teal. Everything now detects `COLORTERM` and falls back to the 256 palette, in the installer and in the
+server both. On a terminal that does support truecolour nothing changes.
+
+**The server no longer waits for the repository before it listens.** On first run the checkout is cloned,
+which takes half a minute, and that clone was happening on the main thread before the socket was open. So
+the browser opened onto a closed port, the hotkeys did nothing, and the app looked dead while it was in fact
+downloading. The clone now runs in the background and the server answers in half a second.
+
+**Two small consequences of that fix.** The `o` hotkey works from the first moment, and the browser is
+launched only after the server has answered its own address.
+
 ## v7 (a) — 8.8.2026 — it opens by itself, and it tells you what broke
 
 **The browser really opens now.** The old code launched it the instant the process started, before the server

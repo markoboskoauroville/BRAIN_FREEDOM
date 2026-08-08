@@ -1,11 +1,18 @@
 #!/usr/bin/env bash
 # =============================================================================
-#  BRAIN FREEDOM  v7 (a)  ·  Mantra Productions
+#  BRAIN FREEDOM  v8 (a)  ·  Mantra Productions
 #  One file, one keypress. No switches, no flags, nothing to remember.
-#  Run it:   bash 7sh_brain_freedom_v7_macos.sh
+#  Run it:   bash 8sh_brain_freedom_v8_macos.sh
 # =============================================================================
-G=$'\033[38;2;224;132;46m'; C=$'\033[38;2;116;199;232m'; Y=$'\033[38;2;242;193;105m'
-D=$'\033[38;2;138;133;120m'; W=$'\033[38;2;233;227;212m'; R=$'\033[0m'
+case "${COLORTERM:-}" in
+  truecolor|24bit)
+    G=$'\033[38;2;224;132;46m'; C=$'\033[38;2;116;199;232m'; Y=$'\033[38;2;242;193;105m'
+    D=$'\033[38;2;138;133;120m'; W=$'\033[38;2;233;227;212m' ;;
+  *)
+    G=$'\033[38;5;208m'; C=$'\033[38;5;117m'; Y=$'\033[38;5;215m'
+    D=$'\033[38;5;245m'; W=$'\033[38;5;230m' ;;
+esac
+R=$'\033[0m'
 APP="$HOME/brain_freedom"; CFG="$HOME/.brain_freedom"; BIN="$HOME/.local/bin"
 say(){ printf "  %s\n" "$1"; }
 ok(){  printf "  ${G}▍${R} %s\n" "$1"; }
@@ -69,7 +76,7 @@ CFG_DIR  = HOME / ".brain_freedom"
 CFG      = CFG_DIR / "config.json"
 INBOX    = APP / "inbox"
 BASE_PORT= 8770
-VERSION  = "v7 (a)"
+VERSION  = "v8 (a)"
 
 for d in (CFG_DIR, INBOX):
     d.mkdir(parents=True, exist_ok=True)
@@ -723,7 +730,15 @@ def online():
     return jsonify(online=ok, term=TERM.pid is not None, tts=tts_ok)
 
 # ---------------------------------------------------------------- banner
-G="\033[38;2;224;132;46m"; C2="\033[38;2;116;199;232m"; D="\033[38;2;140;135;120m"; W="\033[38;2;231;226;214m"; R="\033[0m"
+_TRUE = os.environ.get("COLORTERM", "").lower() in ("truecolor", "24bit")
+def _c(rgb, idx):
+    """Terminal.app on macOS has no 24 bit colour, so fall back to the 256 palette."""
+    return ("\033[38;2;%d;%d;%dm" % rgb) if _TRUE else ("\033[38;5;%dm" % idx)
+G  = _c((224, 132, 46), 208)    # orange, FREEDOM
+C2 = _c((116, 199, 232), 117)   # light blue, BRAIN
+D  = _c((140, 135, 120), 245)   # dim
+W  = _c((231, 226, 214), 230)   # paper
+R  = "\033[0m"
 def banner(port, url, compact=False):
     tty_ok = sys.stdout.isatty()
     def c(x, col): return (col+x+R) if tty_ok else x
@@ -806,16 +821,13 @@ if __name__ == "__main__":
     url = "http://127.0.0.1:%d" % PORT
     (APP/"port").write_text(str(PORT))
     banner(PORT, url, compact=True)
-    try:
-        okr, msg, path = ensure_repo()
-        print("  " + (G if okr else D) + ("repository " + msg + "  " + path if okr else msg) + R)
-    except Exception:
-        pass
-    try:
-        okr, msg, path = ensure_repo()
-        print("  " + (G if okr else D) + ("repository " + msg if okr else msg) + R)
-    except Exception:
-        pass
+    def prepare_repo():
+        try:
+            okr, msg, path = ensure_repo()
+            print("  " + (G if okr else D) + ("repository " + msg + "  " + path if okr else msg) + R)
+        except Exception as e:
+            note_error("startup", e, "server")
+    threading.Thread(target=prepare_repo, daemon=True).start()
     def open_when_ready():
         import urllib.request
         for _ in range(60):
