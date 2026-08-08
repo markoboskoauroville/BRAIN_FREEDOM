@@ -13,7 +13,7 @@ CFG_DIR  = HOME / ".brain_freedom"
 CFG      = CFG_DIR / "config.json"
 INBOX    = APP / "inbox"
 BASE_PORT= 8770
-VERSION  = "v9 (a)"
+VERSION  = "v10 (a)"
 
 for d in (CFG_DIR, INBOX):
     d.mkdir(parents=True, exist_ok=True)
@@ -695,50 +695,58 @@ C2 = _c((116, 199, 232), 117)   # light blue, BRAIN
 D  = _c((140, 135, 120), 245)   # dim
 W  = _c((231, 226, 214), 230)   # paper
 R  = "\033[0m"
-def banner(port, url, compact=False):
+GR = _c((111, 174, 99), 71)
+
+def banner(port, url, compact=False, lan=""):
     tty_ok = sys.stdout.isatty()
     def c(x, col): return (col+x+R) if tty_ok else x
-    BRAIN = [
-        '████████    ████████      ██████    ██████████  ██      ██  ',
-        '██      ██  ██      ██  ██      ██      ██      ████    ██  ',
-        '████████    ████████    ██      ██      ██      ██  ██  ██  ',
-        '██      ██  ████        ██████████      ██      ██    ████  ',
-        '██      ██  ██  ████    ██      ██      ██      ██      ██  ',
-        '████████    ██    ████  ██      ██  ██████████  ██      ██  ',
+    ART = [
+        ' ____  ____      _    ___ _   _   _____ ____  _____ _____ ____   ___  __  __',
+        '| __ )|  _ \\    / \\  |_ _| \\ | | |  ___|  _ \\| ____| ____|  _ \\ / _ \\|  \\/  |',
+        '|  _ \\| |_) |  / _ \\  | ||  \\| | | |_  | |_) |  _| |  _| | | | | | | | |\\/| |',
+        '| |_) |  _ <  / ___ \\ | || |\\  | |  _| |  _ <| |___| |___| |_| | |_| | |  | |',
+        '|____/|_| \\_\\/_/   \\_\\___|_| \\_| |_|   |_| \\_\\_____|_____|____/ \\___/|_|  |_|',
     ]
-    FREE = [
-        '██████████  ████████    ██████████  ██████████  ████████      ██████    ██      ██  ',
-        '██          ██      ██  ██          ██          ██      ██  ██      ██  ████  ████  ',
-        '████████    ████████    ████████    ████████    ██      ██  ██      ██  ██  ██  ██  ',
-        '██          ████        ██          ██          ██      ██  ██      ██  ██      ██  ',
-        '██          ██  ████    ██          ██          ██      ██  ██      ██  ██      ██  ',
-        '██          ██    ████  ██████████  ██████████  ████████      ██████    ██      ██  ',
-    ]
+    RULE = "\u2500" * 74
+
+    def kv(k, v):
+        print("  " + c(k.ljust(9), D) + c(str(v), W))
+
     print()
-    if compact:
-        print("  " + c("\u2588\u2588 BRAIN", C2) + c(" FREEDOM \u2588\u2588", G))
-    else:
-        for r in BRAIN: print("  " + c(r, C2))
-        for r in FREE:  print("  " + c(r, G))
+    print("  " + c("BRAIN FREEDOM", G))
+    print("  " + c("left brain speaks | right brain works", D))
     print()
-    box = [
-        ("version", VERSION),
-        ("address", url),
-        ("port",    str(port)),
-        ("repo",    cfg_load()["repo_path"]),
-        ("branch",  cfg_load()["branch"]),
-        ("browser", pick_browser() or "none found"),
-        ("voice",   ("AssemblyAI, %d keys, opus 24k mono" % len(key_list("assemblyai"))) if key_list("assemblyai") else "no key yet, open the gear"),
-    ]
-    w = max(len(k) for k,_ in box)
-    print("  "+c("┌"+"─"*58+"┐", D))
-    for k,v in box:
-        line = " %s  %s" % (k.ljust(w), v)
-        print("  "+c("│", D)+c(line.ljust(58)[:58], W)+c("│", D))
-    print("  "+c("└"+"─"*58+"┘", D))
+    print("  " + c("\u25ba", GR) + c(" on this Mac   ", D) + c(url, W))
+    if lan:
+        print("  " + c("\u25ba", GR) + c(" on Wi-Fi      ", D) + c("http://%s:%d" % (lan, port), W))
     print()
-    print("  "+c("q", G)+c(" quit    ", D)+c("o", G)+c(" open in browser    ", D)+c("b", G)+c(" background", D))
+    print("  " + c("Ctrl+C to stop", D))
     print()
+    if not compact:
+        for l in ART: print("  " + c(l, G))
+        print("      " + c("left brain speaks | right brain works | Brain Freedom", D))
+        print()
+    c2 = cfg_load()
+    print("  " + c(RULE, D))
+    kv("version", VERSION)
+    kv("address", url)
+    kv("port", "%d  (base %d)" % (port, BASE_PORT))
+    kv("repo", c2.get("repo_path"))
+    kv("branch", c2.get("branch"))
+    kv("browser", pick_browser() or "none found")
+    kv("voice", ("AssemblyAI, %d keys" % len(key_list("assemblyai"))) if key_list("assemblyai") else "no key yet, open the gear")
+    print("  " + c(RULE, D))
+    print()
+    print("  " + c("q quit", G) + c("     o open the page", G) + c("     b background", G))
+    print()
+
+def lan_ip():
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("1.1.1.1", 80)); ip = s.getsockname()[0]; s.close()
+        return ip if not ip.startswith("127.") else ""
+    except Exception:
+        return ""
 
 def free_port(start):
     for p in range(start, start+60):
@@ -776,7 +784,7 @@ PORT = free_port(BASE_PORT)
 if __name__ == "__main__":
     url = "http://127.0.0.1:%d" % PORT
     (APP/"port").write_text(str(PORT))
-    banner(PORT, url, compact=True)
+    banner(PORT, url, compact=False, lan=lan_ip())
     def prepare_repo():
         try:
             okr, msg, path = ensure_repo()

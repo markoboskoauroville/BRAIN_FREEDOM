@@ -8,6 +8,21 @@ The version label carries an account letter, `(a)`, marking which account last t
 
 ---
 
+## v10 (a) — 8.8.2026 — one house style for the terminal
+
+The splash was rebuilt to match MA Reader, so every app in the ecosystem now opens the same way and the eye
+knows where to look without reading.
+
+**The same shape in both places**, installer and server. Name in orange, tagline under it, the addresses with
+green arrow markers, the stop instruction, then thin ASCII lettering, a rule, an aligned key and value panel,
+a second rule, and the hotkey legend.
+
+**Two addresses, not one.** The local address and the Wi-Fi address, so the interface can be opened from
+another machine or a phone on the same network without hunting for the IP.
+
+**Lighter lettering.** The heavy block logo was replaced with the thin drawn style, which reads better on a
+dark terminal and no longer fills the screen when the server starts.
+
 ## v9 (a) — 8.8.2026 — the agent actually starts inside the film
 
 A real bug, and one that had been quietly wrong since the working folder moved. The folder was created and
