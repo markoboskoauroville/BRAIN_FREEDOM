@@ -13,7 +13,7 @@ CFG_DIR  = HOME / ".brain_freedom"
 CFG      = CFG_DIR / "config.json"
 INBOX    = APP / "inbox"
 BASE_PORT= 8770
-VERSION  = "v5 (a)"
+VERSION  = "v6 (a)"
 
 for d in (CFG_DIR, INBOX):
     d.mkdir(parents=True, exist_ok=True)
@@ -23,7 +23,7 @@ DEFAULTS = {
     "browser": "",
     "assemblyai_key": "",
     "github_token": "",
-    "repo_path": str(HOME / "brain_freedom" / "BRAIN_BRAKE"),
+    "repo_path": str(HOME / "BRAIN_BRAKE"),
     "repo_slug": "markoboskoauroville/BRAIN_BRAKE",
     "branch": "main",
     "claude_cmd": os.environ.get("BF_CMD","claude"),
@@ -34,6 +34,10 @@ def cfg_load():
     if CFG.exists():
         try: d.update(json.loads(CFG.read_text()))
         except Exception: pass
+    # migration: the working folder moved to the home folder in v6
+    rp = d.get("repo_path") or ""
+    if rp.endswith("brain_freedom/BRAIN_BRAKE") and not os.path.isdir(os.path.join(rp, ".git")):
+        d["repo_path"] = str(HOME / "BRAIN_BRAKE")
     return d
 def cfg_save(d):
     CFG.write_text(json.dumps(d, indent=2)); os.chmod(CFG, 0o600)
@@ -420,7 +424,7 @@ def sh(cmd, cwd=None):
 def ensure_repo():
     """Make sure the checkout exists. Create the folder and clone it if it does not."""
     c = cfg_load()
-    path = c.get("repo_path") or str(HOME / "brain_freedom" / "BRAIN_BRAKE")
+    path = c.get("repo_path") or str(HOME / "BRAIN_BRAKE")
     slug = c.get("repo_slug") or "markoboskoauroville/BRAIN_BRAKE"
     br   = c.get("branch") or "main"
     if os.path.isdir(os.path.join(path, ".git")):
@@ -539,6 +543,98 @@ def usage():
                    days=[{"d":k,"in":v["in"],"out":v["out"]} for k,v in days],
                    avg7=int(avg), note="Estimate from local session logs, not an official account figure.")
 
+
+# ---------------------------------------------------------------- speech, edge tts
+TTS_DIR = APP / "tts"
+TTS_DIR.mkdir(parents=True, exist_ok=True)
+VOICES = {"sonia": "en-GB-SoniaNeural", "ryan": "en-GB-RyanNeural",
+          "aria": "en-US-AriaNeural", "guy": "en-US-GuyNeural"}
+
+def _communicate(edge_tts, text, voice):
+    """edge-tts 7.x defaults to SentenceBoundary, which gives no word events.
+    Ask for WordBoundary explicitly, fall back for older versions."""
+    try:
+        return edge_tts.Communicate(text, voice, boundary="WordBoundary")
+    except TypeError:
+        return edge_tts.Communicate(text, voice)
+
+@app.post("/api/tts")
+def tts():
+    import asyncio, hashlib
+    try:
+        import edge_tts
+    except Exception:
+        return jsonify(ok=False, error="edge-tts not installed, run the installer again")
+    o = request.json or {}
+    text = (o.get("text") or "").strip()
+    if not text: return jsonify(ok=False, error="nothing to read")
+    voice = VOICES.get(o.get("voice", "sonia"), VOICES["sonia"])
+    rate = int(o.get("rate", 0))
+    rate_s = ("+%d%%" % rate) if rate >= 0 else ("%d%%" % rate)
+    uid = hashlib.sha1((text + voice + rate_s).encode()).hexdigest()[:16]
+    mp3 = TTS_DIR / (uid + ".mp3")
+    js  = TTS_DIR / (uid + ".json")
+    if mp3.exists() and js.exists():
+        return jsonify(ok=True, id=uid, bounds=json.loads(js.read_text()), cached=True)
+
+    async def go():
+        bounds = []
+        try:
+            com = edge_tts.Communicate(text, voice, rate=rate_s, boundary="WordBoundary")
+        except TypeError:
+            com = edge_tts.Communicate(text, voice, rate=rate_s)
+        with open(str(mp3) + ".part", "wb") as f:
+            async for ch in com.stream():
+                if ch["type"] == "audio":
+                    f.write(ch["data"])
+                elif ch["type"] == "WordBoundary":
+                    bounds.append({"t": ch["offset"] / 1e7, "d": ch["duration"] / 1e7, "w": ch["text"]})
+        return bounds
+    loop = asyncio.new_event_loop()
+    try:
+        bounds = loop.run_until_complete(go())
+    except Exception as e:
+        try: os.remove(str(mp3) + ".part")
+        except Exception: pass
+        return jsonify(ok=False, error="speech failed: %s" % str(e)[:140])
+    finally:
+        loop.close()
+    try:
+        if not os.path.getsize(str(mp3) + ".part"):
+            return jsonify(ok=False, error="no audio came back")
+    except Exception:
+        return jsonify(ok=False, error="no audio came back")
+    os.replace(str(mp3) + ".part", str(mp3))
+    js.write_text(json.dumps(bounds))
+    # keep the cache small
+    files = sorted(TTS_DIR.glob("*.mp3"), key=lambda p: p.stat().st_mtime)
+    for old in files[:-60]:
+        try:
+            old.unlink(); Path(str(old)[:-4] + ".json").unlink(missing_ok=True)
+        except Exception: pass
+    return jsonify(ok=True, id=uid, bounds=bounds, cached=False)
+
+@app.get("/api/tts/<uid>.mp3")
+def tts_audio(uid):
+    p = TTS_DIR / (uid + ".mp3")
+    if not p.exists(): return ("no", 404)
+    return send_file(p, mimetype="audio/mpeg")
+
+@app.get("/api/online")
+def online():
+    ok = False
+    try:
+        s = socket.create_connection(("1.1.1.1", 443), 1.5); s.close(); ok = True
+    except Exception:
+        try:
+            s = socket.create_connection(("8.8.8.8", 53), 1.5); s.close(); ok = True
+        except Exception: ok = False
+    try:
+        import edge_tts; tts_ok = True
+    except Exception:
+        tts_ok = False
+    return jsonify(online=ok, term=TERM.pid is not None, tts=tts_ok)
+
 # ---------------------------------------------------------------- banner
 G="\033[38;2;224;163;64m"; C2="\033[38;2;77;214;232m"; D="\033[38;2;140;135;120m"; W="\033[38;2;231;226;214m"; R="\033[0m"
 def banner(port, url):
@@ -620,6 +716,16 @@ if __name__ == "__main__":
     url = "http://127.0.0.1:%d" % PORT
     (APP/"port").write_text(str(PORT))
     banner(PORT, url)
+    try:
+        okr, msg, path = ensure_repo()
+        print("  " + (G if okr else D) + ("repository " + msg + "  " + path if okr else msg) + R)
+    except Exception:
+        pass
+    try:
+        okr, msg, path = ensure_repo()
+        print("  " + (G if okr else D) + ("repository " + msg if okr else msg) + R)
+    except Exception:
+        pass
     b = open_in_browser(url)
     print("  " + D + "opening " + (b or "your browser") + R + "\n")
     threading.Thread(target=hotkeys, args=(PORT,url), daemon=True).start()

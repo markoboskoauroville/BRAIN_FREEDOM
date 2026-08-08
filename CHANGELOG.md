@@ -8,6 +8,35 @@ The version label carries an account letter, `(a)`, marking which account last t
 
 ---
 
+## v6 (a) — 8.8.2026 — reading in place, and a meter that means something
+
+**Reading no longer opens a window.** A small note beside every message reads it aloud and highlights each
+word where it already sits, the way Speechify moves through a document. The composer has the same note, so
+anything typed or dictated can be heard back before it is sent.
+
+**Real speech, with real timings.** The browser voice was replaced by edge-tts, taken from MA Reader, asked
+explicitly for WordBoundary events, because version 7 of that library quietly changed the default to
+SentenceBoundary and any app built the old way is spreading words evenly across the audio and only pretending
+to follow them. Four voices, chosen behind the gear, cached on disk so a repeated paragraph is instant.
+
+**A VU meter instead of a spectrum.** Twenty two segments, RMS in decibels, green through gold into red, with
+a peak hold that falls back after seven tenths of a second. Empty when there is silence, which is the point.
+It behaves like the meter in an editing suite because that is what the hand already knows.
+
+**Two green indicators.** One beside the repository, lit when the machine is online. One beside the engine,
+lit only when the terminal is alive and the network is up, so a glance answers the question of whether
+anything is actually working.
+
+**Quieter chrome.** The gear lost its filled circle and became a small muted glyph. The title and the
+repository line share the same muted gold. Record and Read went from bright to dim, deep red and deep blue on
+near black, present without shouting.
+
+**The working folder is decided for you.** It is created at `~/BRAIN_BRAKE`, cloned at first run, and existing
+installs are migrated off the old nested path automatically. This app serves one film, so there was nothing to
+ask.
+
+**More room for the terminal**, so the agent stops drawing underneath the scrollbar.
+
 ## v5 (a) — 7.8.2026 — seeing and choosing
 
 **Two coloured buttons.** Record is deep red on near black with a red ring, Read is deep blue on near black

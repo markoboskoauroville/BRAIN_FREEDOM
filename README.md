@@ -10,7 +10,7 @@ Built for a director who is dyslexic and works by voice. Everything here follows
 nothing to remember, no command line switches, a file picker wherever a key or a path is needed, read aloud
 with word highlighting, and text size controls on both halves of the screen.
 
-    bash 5sh_brain_freedom_v5_macos.sh
+    bash 6sh_brain_freedom_v6_macos.sh
 
 One file. It opens a menu of single keys, no Enter needed.
 
